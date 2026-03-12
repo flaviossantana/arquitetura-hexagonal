@@ -49,3 +49,5 @@ replay_pid*
 /build/tmp/compileJava/previous-compilation-data.bin
 /build/reports/problems/problems-report.html
 /build/tmp/compileTestJava/previous-compilation-data.bin
+/build/tmp/compileJava/compileTransaction/stash-dir/HexagonalApplication.class.uniqueId0
+/build/generated/sources/annotationProcessor/java/main/com/udemy/hexagonal/adapters/out/client/mapper/AddressResponseMapperImpl.java
