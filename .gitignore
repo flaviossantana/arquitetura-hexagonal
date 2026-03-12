@@ -47,3 +47,5 @@ replay_pid*
 /.idea/workspace.xml
 /build/resources/main/application.properties
 /build/tmp/compileJava/previous-compilation-data.bin
+/build/reports/problems/problems-report.html
+/build/tmp/compileTestJava/previous-compilation-data.bin

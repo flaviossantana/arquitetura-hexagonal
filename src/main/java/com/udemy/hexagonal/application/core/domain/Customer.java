@@ -1,6 +1,7 @@
 package com.udemy.hexagonal.application.core.domain;
 
 public class Customer {
+
     private String id;
     private String name;
     private String cpf;
