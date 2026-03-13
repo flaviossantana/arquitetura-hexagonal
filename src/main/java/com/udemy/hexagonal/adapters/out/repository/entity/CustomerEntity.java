@@ -6,7 +6,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 @Data
 @Document(collection = "customer")
-public class CostumerEntity {
+public class CustomerEntity {
 
     @Id
     private String id;

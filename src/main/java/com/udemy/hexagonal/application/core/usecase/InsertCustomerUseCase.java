@@ -5,12 +5,12 @@ import com.udemy.hexagonal.application.core.domain.Customer;
 import com.udemy.hexagonal.application.ports.out.FindAdressByZipCodeOutputPort;
 import com.udemy.hexagonal.application.ports.out.InsertCustomerOutputPort;
 
-public class InsertCostumerUseCase {
+public class InsertCustomerUseCase {
 
     private final FindAdressByZipCodeOutputPort findAdressByZipCodeOutputPort;
     private final InsertCustomerOutputPort insertCustomerOutputPort;
 
-    public InsertCostumerUseCase(FindAdressByZipCodeOutputPort findAdressByZipCodeOutputPort, InsertCustomerOutputPort insertCustomerOutputPort) {
+    public InsertCustomerUseCase(FindAdressByZipCodeOutputPort findAdressByZipCodeOutputPort, InsertCustomerOutputPort insertCustomerOutputPort) {
         this.findAdressByZipCodeOutputPort = findAdressByZipCodeOutputPort;
         this.insertCustomerOutputPort = insertCustomerOutputPort;
     }
