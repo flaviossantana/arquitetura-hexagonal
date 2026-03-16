@@ -64,3 +64,4 @@ replay_pid*
 /build/tmp/bootJar/MANIFEST.MF
 /build/tmp/jar/MANIFEST.MF
 /build/resolvedMainClassName
+*Impl.java
