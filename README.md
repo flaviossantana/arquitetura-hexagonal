@@ -82,7 +82,7 @@ Para executar os testes automatizados:
 As configurações principais estão em `src/main/resources/application.properties`:
 
 - `spring.data.mongodb.uri`: URI de conexão com o MongoDB.
-- `hexagonal.client.address.url`: URL do serviço externo de endereços.
+- `hexagonal.client.addressResponse.url`: URL do serviço externo de endereços.
 
 ## 📜 Licença
 
