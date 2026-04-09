@@ -7,13 +7,13 @@ import com.udemy.hexagonal.application.ports.in.UpdateCustomerInputPort;
 import com.udemy.hexagonal.application.ports.out.FindAdressByZipCodeOutputPort;
 import com.udemy.hexagonal.application.ports.out.UpdateCustomerOutputPort;
 
-public class UpateCustomerUseCse implements UpdateCustomerInputPort {
+public class UpdateCustomerUseCase implements UpdateCustomerInputPort {
 
     private final UpdateCustomerOutputPort updateCustomerOutputPort;
     private final FindCustomerByIdInputPort findCustomerByIdInputPort;
     private final FindAdressByZipCodeOutputPort findAdressByZipCodeOutputPort;
 
-    public UpateCustomerUseCse(UpdateCustomerOutputPort updateCustomerOutputPort, FindCustomerByIdInputPort findCustomerByIdInputPort, FindAdressByZipCodeOutputPort findAdressByZipCodeOutputPort) {
+    public UpdateCustomerUseCase(UpdateCustomerOutputPort updateCustomerOutputPort, FindCustomerByIdInputPort findCustomerByIdInputPort, FindAdressByZipCodeOutputPort findAdressByZipCodeOutputPort) {
         this.updateCustomerOutputPort = updateCustomerOutputPort;
         this.findCustomerByIdInputPort = findCustomerByIdInputPort;
         this.findAdressByZipCodeOutputPort = findAdressByZipCodeOutputPort;
