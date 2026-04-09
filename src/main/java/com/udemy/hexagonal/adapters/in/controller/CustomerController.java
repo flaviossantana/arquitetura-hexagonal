@@ -37,15 +37,15 @@ public class CustomerController {
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping
-    public ResponseEntity<Void> update(@Valid @RequestBody CustomerRequest customerRequest) {
-        updateCustomerInputPort
-                .updateCustomer(customerMapper
-                        .toCustomer(customerRequest),
-                        customerRequest.getZipCode()
-                );
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> update(@PathVariable String id, @Valid @RequestBody CustomerRequest customerRequest) {
 
-        return ResponseEntity.ok().build();
+        Customer customer = customerMapper.toCustomer(customerRequest);
+        customer.setId(id);
+
+        updateCustomerInputPort.updateCustomer(customer, customerRequest.getZipCode());
+
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("{id}")
