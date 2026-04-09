@@ -4,6 +4,7 @@ import com.udemy.hexagonal.adapters.in.controller.mapper.CustomerMapper;
 import com.udemy.hexagonal.adapters.in.controller.request.CustomerRequest;
 import com.udemy.hexagonal.adapters.in.controller.response.CustomerResponse;
 import com.udemy.hexagonal.application.core.domain.Customer;
+import com.udemy.hexagonal.application.ports.in.DeleteCustomerInputPort;
 import com.udemy.hexagonal.application.ports.in.FindCustomerByIdInputPort;
 import com.udemy.hexagonal.application.ports.in.InsertCustomerInputPort;
 import com.udemy.hexagonal.application.ports.in.UpdateCustomerInputPort;
@@ -26,7 +27,18 @@ public class CustomerController {
     private UpdateCustomerInputPort updateCustomerInputPort;
 
     @Autowired
+    private DeleteCustomerInputPort deleteCustomerInputPort;
+
+    @Autowired
     private CustomerMapper customerMapper;
+
+    @GetMapping("{id}")
+    public ResponseEntity<CustomerResponse> findById(@PathVariable String id) {
+        return ResponseEntity
+                .ok(customerMapper.toCustomerRequest(
+                        findCustomerByIdUseCase.find(id))
+                );
+    }
 
     @PostMapping
     public ResponseEntity<Void> insert(@Valid @RequestBody CustomerRequest customerRequest) {
@@ -48,12 +60,12 @@ public class CustomerController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("{id}")
-    public ResponseEntity<CustomerResponse> findById(@PathVariable String id) {
-        return ResponseEntity
-                .ok(customerMapper.toCustomerRequest(
-                        findCustomerByIdUseCase.find(id))
-                );
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable String id) {
+
+        deleteCustomerInputPort.delete(id);
+
+        return ResponseEntity.noContent().build();
     }
 
 }
