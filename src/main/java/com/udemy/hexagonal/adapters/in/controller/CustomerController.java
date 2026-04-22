@@ -78,20 +78,35 @@ public class CustomerController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Void> update(@PathVariable String id, @Valid @RequestBody CustomerRequest customerRequest) {
+        try {
+            MDC.put("correlationID", UUID.randomUUID().toString());
+            log.info("Update customer: {}", customerRequest);
 
-        Customer customer = customerMapper.toCustomer(customerRequest);
-        customer.setId(id);
+            Customer customer = customerMapper.toCustomer(customerRequest);
+            customer.setId(id);
+            log.info("CustomerRequest mapped Customer: {}", customer);
 
-        updateCustomerInputPort.updateCustomer(customer, customerRequest.getZipCode());
+            updateCustomerInputPort.updateCustomer(customer, customerRequest.getZipCode());
+            log.info("Customer updated");
 
-        return ResponseEntity.noContent().build();
+            return ResponseEntity.noContent().build();
+        }finally {
+            MDC.remove("correlationID");
+        }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id) {
+        try {
+            MDC.put("correlationID", UUID.randomUUID().toString());
+            log.info("Delete customer by id: {}", id);
 
-        deleteCustomerInputPort.delete(id);
+            deleteCustomerInputPort.delete(id);
+            log.info("Customer deleted");
 
-        return ResponseEntity.noContent().build();
+            return ResponseEntity.noContent().build();
+        }finally {
+            MDC.remove("correlationID");
+        }
     }
 }
