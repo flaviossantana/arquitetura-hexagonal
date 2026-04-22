@@ -1,8 +1,14 @@
 package com.udemy.hexagonal.adapters.in.controller.response;
 
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class CustomerResponse {
     private String id;
     private String name;

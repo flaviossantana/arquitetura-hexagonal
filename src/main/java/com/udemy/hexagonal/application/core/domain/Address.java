@@ -6,10 +6,6 @@ public class Address {
     private String state;
     private String street;
 
-    public Address() {
-        super();
-    }
-
     public Address(String street, String city, String state) {
         this.street = street;
         this.city = city;
@@ -38,6 +34,10 @@ public class Address {
 
     public void setState(String state) {
         this.state = state;
+    }
+
+    public String toString() {
+        return "Address [street=" + street + ", city=" + city + ", state=" + state + "]";
     }
 }
 

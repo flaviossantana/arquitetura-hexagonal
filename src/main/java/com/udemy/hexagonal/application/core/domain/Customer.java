@@ -59,4 +59,11 @@ public class Customer {
     public void setCpfValid(Boolean cpfValid) {
         isCpfValid = cpfValid;
     }
+
+    @Override
+    public String toString() {
+        return "Customer [id=" + id + ", name=" + name + ", cpf=" + cpf + ", address=" + address + ", isCpfValid="
+                + isCpfValid + "]";
+    }
+
 }
