@@ -4,9 +4,7 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.library.Architectures;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
 @AnalyzeClasses(packages = "com.udemy.hexagonal")
 public class LayeredArchitectureTest {
 
@@ -19,6 +17,7 @@ public class LayeredArchitectureTest {
     private static final String CONFIG = "Config";
 
     @ArchTest
+    @SuppressWarnings("unused")
     public static final ArchRule layeredArchitecture =
             Architectures
                     .layeredArchitecture()
