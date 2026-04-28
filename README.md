@@ -1,209 +1,236 @@
-# 🔷 Arquitetura Hexagonal com Spring Boot
+# Arquitetura Hexagonal com Spring Boot
 
-Implementação prática da **Arquitetura Hexagonal** (Ports & Adapters) utilizando Java, Spring Boot, MongoDB e Kafka. O objetivo é demonstrar um sistema altamente testável, desacoplado e focado nas regras de negócio.
+Projeto prático de **Arquitetura Hexagonal (Ports & Adapters)** com Java e Spring, feito para mostrar como manter regra de negócio no centro e detalhes técnicos nas bordas.
 
----
+Em vez de acoplar tudo ao framework, aqui a ideia é simples: o domínio manda no jogo, e banco, HTTP e mensageria se adaptam a ele.
 
-## 🚀 Tecnologias
+## Descrição do Projeto
 
-| Tecnologia | Versão | Uso |
-|-----------|--------|-----|
-| ☕ Java | 21 | Linguagem |
-| 🍃 Spring Boot | 3.5.11 | Framework base |
-| ☁️ Spring Cloud | 2025.0.0 | OpenFeign (HTTP client declarativo) |
-| 🍃 MongoDB | — | Persistência de documentos |
-| 📨 Apache Kafka | — | Mensageria assíncrona |
-| 🗺️ MapStruct | 1.5.3.Final | Mapeamento entre camadas (compile-time) |
-| 🦏 Lombok | — | Redução de boilerplate |
-| ✅ Jakarta Validation | — | Validação de entrada |
+Implementação prática da Arquitetura Hexagonal usando **Java 21, Spring Boot, MongoDB, Kafka, OpenFeign e MapStruct** para construir um serviço de clientes com:
 
----
+- API REST para CRUD
+- Busca de endereço por ZIP code via client HTTP externo
+- Publicação de CPF para validação assíncrona
+- Consumo do resultado da validação para atualizar o cliente
 
-## 🏗️ Arquitetura
+Objetivo: demonstrar um sistema **testável, desacoplado, com baixo impacto de mudanças de infraestrutura** e com regras de negócio preservadas.
 
-O projeto implementa a **Arquitetura Hexagonal** onde o núcleo da aplicação (domínio e casos de uso) é completamente isolado de detalhes técnicos (banco de dados, HTTP, mensageria). A comunicação entre as camadas ocorre exclusivamente por meio de interfaces — os **Ports**.
+## Stack Tecnológica
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  🔌 ADAPTERS (in)                       │
-│   🌐 REST Controller        📥 Kafka Consumer           │
-└────────────────┬───────────────────┬────────────────────┘
-                 │  Input Ports      │
-         ┌───────▼───────────────────▼───────┐
-         │      💎 APPLICATION CORE          │
-         │  ┌─────────────────────────────┐  │
-         │  │       ⚙️ Use Cases          │  │
-         │  └─────────────────────────────┘  │
-         │  ┌─────────────────────────────┐  │
-         │  │         🧩 Domain           │  │
-         │  │    (Customer, Address)      │  │
-         │  └─────────────────────────────┘  │
-         └───────┬───────────────────┬───────┘
-                 │  Output Ports     │
-┌────────────────▼───────────────────▼────────────────────┐
-│                  🔌 ADAPTERS (out)                       │
-│  🗄️ MongoDB Repository  🌍 OpenFeign  📤 Kafka Producer  │
-└─────────────────────────────────────────────────────────┘
-```
+| Tecnologia | Versão | Papel no projeto |
+| --- | --- | --- |
+| Java | 21 | Linguagem principal |
+| Spring Boot | 3.5.11 | Infraestrutura da aplicação |
+| Spring Cloud OpenFeign | BOM 2025.0.0 | Client HTTP declarativo |
+| Spring Data MongoDB | via Boot | Persistência |
+| Spring Kafka | via Boot | Producer/Consumer Kafka |
+| MapStruct | 1.5.3.Final | Mapeamento entre camadas |
+| Lombok | via Gradle | Redução de boilerplate |
+| Jakarta Validation | via Boot | Validação de request |
+| ArchUnit | 1.4.0 | Testes de arquitetura |
+| JUnit 5 | via Boot | Testes automatizados |
 
-### 💉 Princípio de injeção de dependência
+## O que esse projeto cobre (features)
 
-Os **casos de uso são classes Java puras** — não são beans Spring. Eles são instanciados manualmente nas classes de configuração (`config/`), que recebem os adapters como dependências Spring e os injetam nos use cases. Isso garante que o core da aplicação não dependa de nenhum framework.
+- CRUD de clientes via `/api/v1/customers`
+- Enriquecimento de cliente com endereço antes de persistir
+- Publicação de CPF em tópico Kafka para validação
+- Consumer Kafka para receber CPF validado e atualizar cliente
+- Tratamento global de erro de cliente não encontrado (`404`)
+- Logging com `correlationID` em cada requisição REST
+- Mapeamento explícito entre fronteiras (request/domain/entity/message)
 
----
+## Arquitetura em 1 minuto
 
-## 📁 Estrutura do Projeto
+### Core (regra de negócio)
 
-```
-src/main/java/com/udemy/hexagonal/
-│
-├── application/
-│   ├── core/
-│   │   ├── domain/              # 🧩 Entidades de domínio puras (sem anotações de framework)
-│   │   │   ├── Customer.java
-│   │   │   └── Address.java
-│   │   └── usecase/             # ⚙️ Implementações dos casos de uso
-│   │       ├── InsertCustomerUseCase.java
-│   │       ├── UpdateCustomerUseCase.java
-│   │       ├── FindCustomerByIdUseCase.java
-│   │       └── DeleteCustomerUseCase.java
-│   └── ports/
-│       ├── in/                  # 🔵 Contratos que os use cases implementam
-│       │   ├── InsertCustomerInputPort.java
-│       │   ├── UpdateCustomerInputPort.java
-│       │   ├── FindCustomerByIdInputPort.java
-│       │   └── DeleteCustomerInputPort.java
-│       └── out/                 # 🟠 Contratos que os adapters implementam
-│           ├── InsertCustomerOutputPort.java
-│           ├── UpdateCustomerOutputPort.java
-│           ├── FindCustomerByIdOutputPort.java
-│           ├── DeleteCustomerOutputPort.java
-│           ├── FindAdressByZipCodeOutputPort.java
-│           └── SendCpfForValidationOutputPort.java
-│
-├── adapters/
-│   ├── in/
-│   │   ├── controller/          # 🌐 REST API + DTOs (CustomerRequest, CustomerResponse)
-│   │   │   ├── mapper/          # 🗺️ CustomerMapper (MapStruct)
-│   │   │   └── CustomerController.java
-│   │   └── consumer/            # 📥 Kafka consumer de CPF validado
-│   │       ├── mapper/          # 🗺️ CustomerMessageMapper (MapStruct)
-│   │       └── ReceiveValidatedCpfConsumer.java
-│   └── out/
-│       ├── repository/          # 🗄️ Adapters MongoDB + CustomerEntity
-│       │   └── mapper/          # 🗺️ CustomerEntityMapper (MapStruct)
-│       ├── client/              # 🌍 OpenFeign client para busca de endereço
-│       │   └── mapper/          # 🗺️ AddressResponseMapper (MapStruct)
-│       └── SendCpfValidationAdapter.java  # 📤 Kafka producer
-│
-└── config/                      # 🔧 Spring @Bean — instancia use cases manualmente
-    ├── InsertCustomerConfig.java
-    ├── UpdateCustomerConfig.java
-    ├── FindCustomerByIdConfig.java
-    ├── DeleteCustomerConfig.java
-    ├── KafkaProducerConfig.java
-    └── KafkaConsumerConfig.java
-```
+- `application/core/domain`: entidades puras (`Customer`, `Address`)
+- `application/core/usecase`: casos de uso (`Insert`, `Update`, `Find`, `Delete`)
 
----
+### Ports (contratos)
 
-## 🔄 Fluxo de Dados — Inserção de Cliente
+- `application/ports/in`: contratos que os adapters de entrada chamam
+- `application/ports/out`: contratos que os casos de uso usam para falar com mundo externo
 
-1. 🌐 **HTTP POST** `/api/v1/customers` → `CustomerController`
-2. 🗺️ `CustomerController` mapeia `CustomerRequest` → `Customer` (domain) via MapStruct
-3. ⚙️ `InsertCustomerUseCase.insert()` orquestra:
-   - 🌍 Busca endereço via `FindAdressByZipCodeOutputPort` → `FindAddressZipCodeAdapter` (OpenFeign → serviço externo)
-   - 🗄️ Persiste cliente via `InsertCustomerOutputPort` → `InsertCustomerAdapter` (MongoDB)
-   - 📤 Envia CPF para validação via `SendCpfForValidationOutputPort` → `SendCpfValidationAdapter` (Kafka → `topic-cpf-validation`)
-4. 🔍 Serviço externo de validação publica resultado em `topic-cpf-validated`
-5. 📥 `ReceiveValidatedCpfConsumer` consome a mensagem e chama `UpdateCustomerUseCase` para atualizar o campo `isCpfValid`
+### Adapters (implementações)
 
----
+- `adapters/in/controller`: REST API
+- `adapters/in/consumer`: Kafka consumer
+- `adapters/out/repository`: MongoDB
+- `adapters/out/client`: integração HTTP externa
+- `adapters/out`: envio Kafka
 
-## 📡 API REST
+### Config (composition root)
 
-**Base URL:** `/api/v1/customers`
+- `config/*Config`: instancia os use cases e injeta adapters concretos
+- Use cases são classes Java puras, sem anotação Spring
 
-| Método | Endpoint | Body | Resposta | Descrição |
-|--------|----------|------|----------|-----------|
-| 🟢 POST | `/` | `CustomerRequest` | 200 OK | Cria novo cliente |
-| 🔵 GET | `/{id}` | — | `CustomerResponse` | Busca cliente por ID |
-| 🟡 PUT | `/{id}` | `CustomerRequest` | 204 No Content | Atualiza cliente |
-| 🔴 DELETE | `/{id}` | — | 204 No Content | Remove cliente |
+## Prós e Contras da Arquitetura Hexagonal (na prática)
 
-**📥 CustomerRequest:**
+### Prós
+
+- Regra de negócio isolada de framework e infraestrutura
+- Testabilidade alta (especialmente no core e regras arquiteturais)
+- Troca de tecnologia com menor impacto (ex.: banco ou broker)
+- Fronteiras explícitas por portas facilitam manutenção
+- Organização previsível em times grandes
+
+### Contras
+
+- Mais arquivos/interfaces no início (curva de adoção)
+- Boilerplate maior em projetos pequenos
+- Exige disciplina de equipe para manter fronteiras
+- Mau uso pode virar “arquitetura de slides” sem ganho real
+- Depuração às vezes passa por mais camadas que o necessário
+
+Resumo pragmático: para sistema simples, pode parecer “overengineering”; para sistema que cresce e integra com muita coisa, paga o investimento.
+
+## Convenções adotadas
+
+- Casos de uso nunca dependem de classes de `adapters`
+- Domínio não depende de Spring, adapters ou ports
+- Adapter de entrada não acessa adapter de saída diretamente
+- Sufixos e pacotes padronizados (`*UseCase`, `*InputPort`, `*OutputPort`, `*Adapter`, `*Mapper`, `*Config`, etc.)
+- Controllers e Consumers restritos aos pacotes corretos
+- Mappers centralizados em pacotes `mapper`
+
+Essas regras não estão só “combinadas”: estão automatizadas com ArchUnit.
+
+## Testes
+
+### Testes de arquitetura (ArchUnit)
+
+- `LayeredArchitectureTest`: protege as camadas e dependências permitidas
+- `DependencyRulesTest`: impede acoplamentos indevidos entre core/adapters
+- `NamingConventionTest`: garante convenções de nomes e pacotes
+- `SpringRulesTest`: evita uso indevido de Spring no domínio/core
+
+### Testes de contexto Spring
+
+- `HexagonalApplicationTests`: sobe o contexto da aplicação
+
+## Tratamento de erros
+
+- `CustomerNotFoundException` (core) representa ausência de cliente
+- `ApiExceptionHandler` converte exceção para resposta HTTP padronizada
+- `StandardError` padroniza payload com:
+  - `timestamp`
+  - `status`
+  - `message`
+  - `path`
+
+Retorno esperado para cliente não encontrado: **HTTP 404**.
+
+## Endpoints REST
+
+Base: `api/v1/customers`
+
+| Método | Endpoint | Descrição | Status |
+| --- | --- | --- | --- |
+| POST | `/` | Cria cliente | `200 OK` |
+| GET | `/{id}` | Busca cliente por id | `200 OK` / `404` |
+| PUT | `/{id}` | Atualiza cliente | `204 No Content` |
+| DELETE | `/{id}` | Remove cliente | `204 No Content` |
+
+Exemplo de request:
+
 ```json
 {
-  "name": "João Silva",
+  "name": "Joao Silva",
   "cpf": "12345678901",
   "zipCode": "01001000"
 }
 ```
 
-**📤 CustomerResponse:**
-```json
-{
-  "name": "João Silva",
-  "cpf": "12345678901",
-  "address": {
-    "street": "Praça da Sé",
-    "city": "São Paulo",
-    "state": "SP"
-  },
-  "isCpfValid": true
-}
-```
+Validações atuais de entrada (`CustomerRequest`):
 
----
+- `name`: `@NotBlank`
+- `cpf`: `@NotBlank`
+- `zipCode`: `@NotBlank`
 
-## 📐 Padrões e Convenções
+## Mensageria (Kafka)
 
-- 🗺️ **Um mapper por fronteira de camada:** cada transição (HTTP → domínio, domínio → entidade, Kafka → domínio) tem seu próprio mapper MapStruct com `componentModel = "spring"`
-- 🔵 **Portas de entrada (in):** interfaces implementadas pelos use cases; definem o contrato para os adapters de entrada
-- 🟠 **Portas de saída (out):** interfaces implementadas pelos adapters; os use cases dependem apenas dessas interfaces, nunca de implementações concretas
-- 🔧 **Config como composition root:** as classes em `config/` são o único lugar onde implementações concretas se encontram; fora delas, tudo depende de interfaces
-- ✅ **Validação na borda:** `@Valid` aplicado nos request bodies do controller; o domínio não valida formato de entrada
-- 🏷️ **Nomes de tópicos Kafka via properties:** os nomes de tópicos nunca são hardcoded, sempre injetados via `@Value`
+- Tópico de envio de CPF: `hexagonal.message.producer.topic.cpf.validation`
+- Tópico de retorno de CPF validado: `hexagonal.message.producer.topic.cpf.validated`
+- Consumer group: `spring.kafka.consumer.group-id`
 
----
+Fluxo:
 
-## ⚙️ Configuração
+1. API recebe cliente
+2. Caso de uso busca endereço e persiste
+3. CPF é publicado para validação
+4. Consumer recebe CPF validado
+5. Caso de uso atualiza cliente no MongoDB
 
-`src/main/resources/application.properties`:
+## Configuração
 
-```properties
-# 🌍 Serviço externo de endereços
-hexagonal.client.addressResponse.url=http://localhost:8081
+Arquivo: `src/main/resources/application.properties`
 
-# 📨 Kafka
-spring.kafka.bootstrap-servers=localhost:9092
-spring.kafka.consumer.group-id=hexagonal-consumer
-hexagonal.message.producer.topic.cpf.validation=topic-cpf-validation
-hexagonal.message.producer.topic.cpf.validated=topic-cpf-validated
+Principais chaves:
 
-# 🗄️ MongoDB
-spring.data.mongodb.uri=mongodb://localhost:27017/udemy-cursos.hexagonal
-```
+- `hexagonal.client.address.response.url`
+- `spring.kafka.bootstrap-servers`
+- `spring.kafka.consumer.group-id`
+- `hexagonal.message.producer.topic.cpf.validation`
+- `hexagonal.message.producer.topic.cpf.validated`
+- `spring.data.mongodb.host`
+- `spring.data.mongodb.port`
+- `spring.data.mongodb.username`
+- `spring.data.mongodb.password`
+- `spring.data.mongodb.database`
+- `spring.data.mongodb.authentication-database`
 
----
+## Como subir o ambiente local
 
-## 🛠️ Pré-requisitos e Execução
+Pré-requisitos:
 
-- ☕ Java 21 (JDK)
-- 🗄️ MongoDB rodando em `localhost:27017`
-- 📨 Kafka rodando em `localhost:9092`
+- JDK 21
+- Docker/Docker Compose
+
+Infra local (Kafka + Zookeeper + Kafdrop + Mongo + Mongo Express):
 
 ```bash
-# 📦 Build
-./gradlew build
+cd docker-local
+docker compose up -d
+```
 
-# ▶️ Executar
+App:
+
+```bash
+./gradlew clean build
 ./gradlew bootRun
+```
 
-# 🧪 Testes
+Testes:
+
+```bash
 ./gradlew test
 ```
 
----
+## Estrutura resumida
 
-*🎓 Projeto desenvolvido como estudo prático de Arquitetura Hexagonal.*
+```text
+src/main/java/com/udemy/hexagonal
+├── application
+│   ├── core
+│   │   ├── domain
+│   │   ├── exceptions
+│   │   └── usecase
+│   └── ports
+│       ├── in
+│       └── out
+├── adapters
+│   ├── in
+│   │   ├── consumer
+│   │   └── controller
+│   └── out
+│       ├── client
+│       └── repository
+└── config
+```
+
+## Fechamento
+
+Esse projeto é um laboratório real para treinar **separação de responsabilidades**, **evolução segura** e **arquitetura orientada a domínio** sem ficar preso ao framework.
+
+Se a meta é aprender Hexagonal de verdade (com vantagens e dores reais), este repositório entrega.
