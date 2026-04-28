@@ -2,64 +2,157 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Build & Run Commands
+## Build, Run and Test Commands
 
 ```bash
-./gradlew build        # Compile and package
-./gradlew bootRun      # Run the application
-./gradlew test         # Run all tests
-./gradlew clean build  # Full rebuild
+./gradlew clean build   # Full rebuild + tests
+./gradlew build         # Compile and package
+./gradlew bootRun       # Run the application
+./gradlew test          # Run all tests
 ```
 
-- **Java 21** is required (Gradle toolchain enforces this)
-- MongoDB must be running on `localhost:27017`
-- Kafka must be running on `localhost:9092`
+### Prerequisites
 
-## Architecture
+- Java 21 (enforced by Gradle toolchain)
+- Docker + Docker Compose (for local infra)
+- Local services required by the app:
+  - MongoDB on `localhost:27017`
+  - Kafka broker on `localhost:9092`
 
-This project is a textbook implementation of **Hexagonal Architecture (Ports & Adapters)** with Spring Boot.
+## Current Tech Stack
 
-### Layer breakdown
+### Runtime stack
 
+- Java 21
+- Spring Boot `3.5.11`
+- Spring Cloud `2025.0.0` (OpenFeign)
+- Spring Web (REST)
+- Spring Validation (Jakarta Validation)
+- Spring Data MongoDB
+- Spring Kafka
+- MongoDB
+- Apache Kafka
+- MapStruct `1.5.3.Final`
+- Lombok + `lombok-mapstruct-binding`
+
+### Test stack
+
+- JUnit 5 (via `spring-boot-starter-test`)
+- Spring Boot Test (`@SpringBootTest`)
+- Spring Kafka Test
+- ArchUnit JUnit 5 (`com.tngtech.archunit:archunit-junit5:1.4.0`)
+
+## Architecture and Implementation Pattern
+
+This project follows Hexagonal Architecture (Ports & Adapters):
+
+- `application/core/domain`: pure domain classes, no framework dependency
+- `application/core/usecase`: business rules, implementing input ports
+- `application/ports/in`: input contracts consumed by adapters in
+- `application/ports/out`: output contracts consumed by use cases
+- `adapters/in`: entrypoints (REST controllers, Kafka consumers)
+- `adapters/out`: external integrations (Mongo repository adapters, OpenFeign, Kafka producer)
+- `config`: composition root (`@Configuration` + `@Bean`)
+
+### Dependency rule used in code
+
+- Use cases are plain Java classes (not Spring components).
+- Spring creates use case instances in `config/*Config.java`.
+- Use cases depend on `ports/out` interfaces, never on adapter implementations.
+
+## Code Conventions Used in This Project
+
+- Naming by role:
+  - `*UseCase`, `*InputPort`, `*OutputPort`
+  - `*Adapter`, `*Controller`, `*Consumer`, `*Config`
+  - `*Mapper`, `*Entity`, `*Request`, `*Response`
+- Mapping between layers must be done through MapStruct interfaces (`@Mapper(componentModel = "spring")`).
+- Input validation happens at API boundary (`@Valid` in controller methods).
+- Kafka topics and integration endpoints are always configured via `application.properties` (no hardcoded topic names).
+- Logging pattern uses `correlationID` in MDC to track request flow.
+
+## Test Strategy and Test Pattern
+
+### 1) Application smoke test
+
+- `HexagonalApplicationTests`: validates Spring context startup (`contextLoads`).
+
+### 2) Architecture tests (ArchUnit)
+
+Located under `src/test/java/com/udemy/hexagonal/architecture`.
+
+- `NamingConventionTest`:
+  - Enforces class suffix -> package convention.
+- `DependencyRulesTest`:
+  - Prevents `usecase` from depending on `adapters`.
+  - Keeps domain pure from adapter/config/port dependencies.
+  - Prevents `adapters.in` from depending on `adapters.out`.
+- `LayeredArchitectureTest`:
+  - Enforces allowed access between Adapters In/Out, Use Cases, Ports In/Out, and Config.
+- `SpringRulesTest`:
+  - Prevents Spring dependencies in domain.
+  - Prevents web dependencies in use case layer.
+
+These tests are mandatory guardrails for hexagonal boundaries and should evolve with package/naming changes.
+
+## Configuration Keys in Use
+
+From `src/main/resources/application.properties`:
+
+- Address service URL: `hexagonal.client.address.response.url`
+- Kafka bootstrap server: `spring.kafka.bootstrap-servers`
+- Kafka consumer group: `spring.kafka.consumer.group-id`
+- CPF topics:
+  - `hexagonal.message.producer.topic.cpf.validation`
+  - `hexagonal.message.producer.topic.cpf.validated`
+- MongoDB settings:
+  - `spring.data.mongodb.host`
+  - `spring.data.mongodb.port`
+  - `spring.data.mongodb.database`
+  - `spring.data.mongodb.username`
+  - `spring.data.mongodb.password`
+  - `spring.data.mongodb.authentication-database`
+
+## Docker Local Environment
+
+Local infra file: `docker-local/docker-compose.yml`
+
+### Containers
+
+- `zookeeper`
+  - Image: `confluentinc/cp-zookeeper:latest`
+  - Port: `2181`
+- `kafka`
+  - Image: `confluentinc/cp-kafka:7.8.5`
+  - Ports: `9092` (host), `29092` (internal advertised listener)
+  - Depends on `zookeeper`
+- `kafdrop`
+  - Image: `obsidiandynamics/kafdrop:latest`
+  - Port: `9000`
+  - Depends on `kafka`
+- `mongo`
+  - Image: `mongo`
+  - Port: `27017`
+  - Credentials:
+    - user: `root`
+    - password: `example`
+- `mongo-express`
+  - Image: `mongo-express`
+  - Port: `8083`
+  - Connected to `mongo` using `mongodb://root:example@mongo:27017/`
+
+### Network
+
+- Bridge network: `broker-kafka`
+
+### Common local workflow
+
+```bash
+cd docker-local
+docker compose up -d
 ```
-com.udemy.hexagonal/
-├── application/
-│   ├── core/domain/       → Pure domain entities (Customer, Address) — no framework dependencies
-│   ├── core/usecase/      → Business logic; implements input ports, depends only on output port interfaces
-│   └── ports/
-│       ├── in/            → Input port interfaces (contracts that use cases fulfill)
-│       └── out/           → Output port interfaces (contracts that adapters fulfill)
-├── adapters/
-│   ├── in/
-│   │   ├── controller/    → REST controllers, request/response DTOs, MapStruct mappers
-│   │   └── consumer/      → Kafka consumer (receives CPF validation results)
-│   └── out/
-│       ├── repository/    → MongoDB adapters, JPA-style entities, MapStruct mappers
-│       └── client/        → OpenFeign HTTP client for external address lookup
-└── config/                → Spring @Bean wiring — manually instantiates use cases with their adapters
-```
 
-### Dependency injection pattern
+Useful local endpoints after startup:
 
-Use cases are **not** Spring beans — they are plain Java classes instantiated in `config/` classes (e.g., `InsertCustomerConfig`, `DeleteCustomerConfig`). The config classes receive adapter beans as parameters and construct the use case manually, following the hexagonal principle that the application core is framework-agnostic.
-
-### Data flow for customer insertion
-
-1. `CustomerController` receives HTTP POST → maps `InsertCustomerRequest` to `Customer` domain object
-2. `InsertCustomerUseCase.insert()` orchestrates:
-   - Calls `FindAdressByZipCodeOutputPort` → resolved by `FindAddressZipCodeAdapter` (OpenFeign)
-   - Calls `InsertCustomerOutputPort` → resolved by `InsertCustomerAdapter` (MongoDB)
-   - Calls `SendCpfForValidationOutputPort` → resolved by `SendCpfValidationAdapter` (Kafka)
-
-### External services
-
-| Service | Config key | Default |
-|---------|-----------|---------|
-| MongoDB | `spring.data.mongodb.uri` | `mongodb://localhost:27017/udemy-cursos.hexagonal` |
-| Kafka broker | `spring.kafka.bootstrap-servers` | `localhost:9092` |
-| Address microservice | `hexagonal.client.addressResponse.url` | `http://localhost:8081` |
-| CPF validation topic | `hexagonal.message.producer.topic.cpf.validation` | `topic-cpf-validation` |
-
-### Object mapping
-
-MapStruct is used at compile time for all mappings between layers (domain ↔ entity, domain ↔ DTO). Mappers live alongside their adapters or controllers. Lombok is used on domain objects, entities, and DTOs.
+- Kafdrop UI: `http://localhost:9000`
+- Mongo Express UI: `http://localhost:8083`
