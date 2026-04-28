@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.function.Supplier;
 
 @Slf4j
 @RestController
@@ -46,22 +47,18 @@ public class CustomerController {
 
     @GetMapping("{id}")
     public ResponseEntity<CustomerResponse> findById(@PathVariable String id) {
-        try {
-            MDC.put("correlationID", UUID.randomUUID().toString());
+        return executeCustomerCall(() -> {
             log.info("Find customer by id: {}", id);
             Customer customer = findCustomerByIdUseCase.find(id);
             log.info("Customer found: {}", customer);
             return ResponseEntity
                     .ok(customerMapper.toCustomerRequest(customer));
-        } finally {
-            MDC.remove("correlationID");
-        }
+        });
     }
 
     @PostMapping
     public ResponseEntity<Void> insert(@Valid @RequestBody CustomerRequest customerRequest) {
-        try {
-            MDC.put("correlationID", UUID.randomUUID().toString());
+        return executeCustomerCall(() -> {
             log.info("Insert customer: {}", customerRequest);
 
             Customer customer = customerMapper.toCustomer(customerRequest);
@@ -71,15 +68,12 @@ public class CustomerController {
             log.info("Customer inserted");
 
             return ResponseEntity.ok().build();
-        } finally {
-            MDC.remove("correlationID");
-        }
+        });
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Void> update(@PathVariable String id, @Valid @RequestBody CustomerRequest customerRequest) {
-        try {
-            MDC.put("correlationID", UUID.randomUUID().toString());
+        return executeCustomerCall(() -> {
             log.info("Update customer: {}", customerRequest);
 
             Customer customer = customerMapper.toCustomer(customerRequest);
@@ -90,23 +84,26 @@ public class CustomerController {
             log.info("Customer updated");
 
             return ResponseEntity.noContent().build();
-        }finally {
-            MDC.remove("correlationID");
-        }
+        });
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id) {
-        try {
-            MDC.put("correlationID", UUID.randomUUID().toString());
+        return executeCustomerCall(() -> {
             log.info("Delete customer by id: {}", id);
-
             deleteCustomerInputPort.delete(id);
             log.info("Customer deleted");
-
             return ResponseEntity.noContent().build();
+        });
+    }
+
+    private <T> T executeCustomerCall(Supplier<T> metodo){
+        try {
+            MDC.put("correlationID", UUID.randomUUID().toString());
+            return metodo.get();
         }finally {
             MDC.remove("correlationID");
         }
     }
+
 }
